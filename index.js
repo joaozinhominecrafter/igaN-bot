@@ -5,9 +5,9 @@ const pvp = require('mineflayer-pvp').plugin;
 const armorManager = require('mineflayer-armor-manager');
 const collectBlock = require('mineflayer-collectblock').plugin;
 const tool = require('mineflayer-tool').plugin;
-const dashboard = require('mineflayer-dashboard');
-const vec3 = require('vec3').Vec3;
-let mcData; // Será inicializado após o spawn
+const dashboard = require('mineflayer-dashboard').plugin; // Corrigido
+const { Vec3 } = require('vec3'); // Corrigido
+let mcData;
 
 // Configuração avançada
 const config = {
@@ -55,7 +55,6 @@ class MinecraftBot {
   }
 
   loadCorePlugins() {
-    // Carregar plugins essenciais
     this.bot.loadPlugin(pathfinder);
     
     if(config.modules.pvp) {
@@ -80,7 +79,6 @@ class MinecraftBot {
       this.bot.loadPlugin(tool);
     }
 
-    // Carregar dashboard por último
     this.bot.loadPlugin(dashboard);
   }
 
@@ -99,26 +97,24 @@ class MinecraftBot {
     this.reconnectAttempts = 0;
 
     try {
-      // Inicializar após o spawn
       mcData = require('minecraft-data')(this.bot.version);
       
-      // Configurar pathfinder
+      // Configuração correta do pathfinder
       const movements = new Movements(this.bot, mcData);
       movements.scaffoldingBlocks = mcData.blocksArray
         .filter(b => b.name.includes('planks'))
         .map(b => b.id);
       this.bot.pathfinder.setMovements(movements);
 
-      // Configurar auto-eat
       if(config.modules.autoEat) {
         this.bot.autoEat.options = {
           priority: 'foodPoints',
           startAt: 18,
           bannedFood: ['rotten_flesh', 'poisonous_potato']
         };
+        this.bot.autoEat.enable();
       }
 
-      // Iniciar rotinas
       this.startRoutines();
       this.startHealthMonitor();
       this.startHttpServer();
@@ -129,18 +125,31 @@ class MinecraftBot {
     }
   }
 
-  // ... (mantido o restante dos métodos com implementações completas)
+  startRoutines() {
+    setInterval(() => this.autoExplore(), 600000);
+    setInterval(() => this.checkInventory(), 300000);
+    setInterval(() => this.autoMaintenance(), 120000);
+  }
 
-  async autoMaintenance() {
-    if(this.bot.health < 8) this.retreatToSafeZone();
-    if(this.bot.food < 15) this.autoEat();
-    if(config.modules.armorManager) {
-      this.bot.armorManager.equipAll().catch(console.error);
+  async autoExplore() {
+    if(this.bot.pathfinder.isMoving()) return;
+
+    const target = new Vec3(
+      this.bot.entity.position.x + (Math.random() * 200 - 100),
+      this.bot.entity.position.y,
+      this.bot.entity.position.z + (Math.random() * 200 - 100)
+    );
+
+    try {
+      await this.bot.pathfinder.goto(new goals.GoalXZ(target.x, target.z));
+      console.log(`[Exploração] Chegou em ${target}`);
+    } catch (err) {
+      console.error('[Exploração] Erro:', err);
     }
   }
 
   retreatToSafeZone() {
-    const safeDirection = this.bot.entity.position.scaled(-1);
+    const safeDirection = this.bot.entity.position.scale(-1); // Corrigido scaled -> scale
     const target = this.bot.entity.position.plus(safeDirection.normalize().scale(10));
     this.bot.pathfinder.setGoal(new goals.GoalXZ(target.x, target.z));
   }
@@ -148,9 +157,31 @@ class MinecraftBot {
   autoEat() {
     if(config.modules.autoEat) {
       this.bot.autoEat.eat().catch(() => {
-        const food = this.bot.inventory.items().find(i => i.name.includes('_steak') || i.name === 'bread');
-        if(food) this.bot.equip(food, 'hand').then(() => this.bot.consume());
+        const food = this.bot.inventory.items().find(i => 
+          i.name.includes('_steak') || i.name === 'bread'
+        );
+        if(food) {
+          this.bot.equip(food, 'hand')
+            .then(() => this.bot.consume())
+            .catch(console.error);
+        }
       });
+    }
+  }
+
+  // ... (outros métodos mantidos com implementações completas)
+
+  startHttpServer() {
+    if(process.env.RAILWAY_ENVIRONMENT) {
+      require('http').createServer((req, res) => {
+        res.writeHead(200, {'Content-Type': 'application/json'});
+        res.end(JSON.stringify({
+          status: this.isOperating ? 'online' : 'offline',
+          position: this.bot?.entity.position,
+          health: this.bot?.health,
+          food: this.bot?.food
+        }));
+      }).listen(process.env.PORT || 3000);
     }
   }
 }
