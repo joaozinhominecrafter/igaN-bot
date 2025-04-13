@@ -1,15 +1,14 @@
 const mineflayer = require('mineflayer');
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
 const autoeat = require('mineflayer-auto-eat');
-const pvp = require('mineflayer-pvp'); // Remova o .plugin;
+const pvp = require('mineflayer-pvp');
 const armorManager = require('mineflayer-armor-manager');
 const collectBlock = require('mineflayer-collectblock').plugin;
 const tool = require('mineflayer-tool').plugin;
-const dashboard = require('mineflayer-dashboard').plugin; // Corrigido
-const { Vec3 } = require('vec3'); // Corrigido
+const dashboard = require('mineflayer-dashboard').plugin;
+const { Vec3 } = require('vec3');
 let mcData;
 
-// Configuração avançada
 const config = {
   host: process.env.MINECRAFT_HOST || 'localhost',
   port: parseInt(process.env.MINECRAFT_PORT || 25565),
@@ -56,25 +55,20 @@ class MinecraftBot {
 
   loadCorePlugins() {
     this.bot.loadPlugin(pathfinder);
-    
-    if(config.modules.pvp) {
+
+    if (config.modules.pvp) {
       this.bot.loadPlugin(pvp);
-      this.bot.pvp.settings = {
-        attackRange: config.settings.attackRange,
-        followTimeout: 15,
-        priority: 'closest'
-      };
     }
 
-    if(config.modules.autoEat) {
+    if (config.modules.autoEat) {
       this.bot.loadPlugin(autoeat);
     }
 
-    if(config.modules.armorManager) {
+    if (config.modules.armorManager) {
       this.bot.loadPlugin(armorManager);
     }
 
-    if(config.modules.collectResources) {
+    if (config.modules.collectResources) {
       this.bot.loadPlugin(collectBlock);
       this.bot.loadPlugin(tool);
     }
@@ -89,6 +83,7 @@ class MinecraftBot {
     this.bot.on('kicked', (reason) => this.onKicked(reason));
     this.bot.on('error', (err) => this.onError(err));
     this.bot.on('end', () => this.onEnd());
+    this.bot.on('physicsTick', () => this.autoEat()); // corrigido physicTick → physicsTick
   }
 
   async onSpawn() {
@@ -98,15 +93,14 @@ class MinecraftBot {
 
     try {
       mcData = require('minecraft-data')(this.bot.version);
-      
-      // Configuração correta do pathfinder
+
       const movements = new Movements(this.bot, mcData);
       movements.scaffoldingBlocks = mcData.blocksArray
         .filter(b => b.name.includes('planks'))
         .map(b => b.id);
       this.bot.pathfinder.setMovements(movements);
 
-      if(config.modules.autoEat) {
+      if (config.modules.autoEat) {
         this.bot.autoEat.options = {
           priority: 'foodPoints',
           startAt: 18,
@@ -132,7 +126,7 @@ class MinecraftBot {
   }
 
   async autoExplore() {
-    if(this.bot.pathfinder.isMoving()) return;
+    if (this.bot.pathfinder.isMoving()) return;
 
     const target = new Vec3(
       this.bot.entity.position.x + (Math.random() * 200 - 100),
@@ -149,18 +143,18 @@ class MinecraftBot {
   }
 
   retreatToSafeZone() {
-    const safeDirection = this.bot.entity.position.scale(-1); // Corrigido scaled -> scale
+    const safeDirection = this.bot.entity.position.scale(-1);
     const target = this.bot.entity.position.plus(safeDirection.normalize().scale(10));
     this.bot.pathfinder.setGoal(new goals.GoalXZ(target.x, target.z));
   }
 
   autoEat() {
-    if(config.modules.autoEat) {
+    if (config.modules.autoEat) {
       this.bot.autoEat.eat().catch(() => {
-        const food = this.bot.inventory.items().find(i => 
+        const food = this.bot.inventory.items().find(i =>
           i.name.includes('_steak') || i.name === 'bread'
         );
-        if(food) {
+        if (food) {
           this.bot.equip(food, 'hand')
             .then(() => this.bot.consume())
             .catch(console.error);
@@ -169,12 +163,10 @@ class MinecraftBot {
     }
   }
 
-  // ... (outros métodos mantidos com implementações completas)
-
   startHttpServer() {
-    if(process.env.RAILWAY_ENVIRONMENT) {
+    if (process.env.RAILWAY_ENVIRONMENT) {
       require('http').createServer((req, res) => {
-        res.writeHead(200, {'Content-Type': 'application/json'});
+        res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
           status: this.isOperating ? 'online' : 'offline',
           position: this.bot?.entity.position,
@@ -184,13 +176,45 @@ class MinecraftBot {
       }).listen(process.env.PORT || 3000);
     }
   }
+
+  // Métodos faltantes (comportamento custom) podem ser adicionados aqui
+  onChat(username, message) {
+    // implementar comandos
+  }
+
+  onDeath() {
+    console.log('[Morte] Bot morreu');
+  }
+
+  onKicked(reason) {
+    console.log('[Kickado] Motivo:', reason);
+  }
+
+  onError(err) {
+    console.error('[Erro] Geral:', err);
+  }
+
+  onEnd() {
+    console.log('[End] Conexão encerrada');
+  }
+
+  checkInventory() {
+    // implementar
+  }
+
+  autoMaintenance() {
+    // implementar
+  }
+
+  startHealthMonitor() {
+    // implementar
+  }
 }
 
-// Inicialização do Bot
+// Inicialização
 const botInstance = new MinecraftBot();
 botInstance.initialize();
 
-// Gerenciamento de Processos
 process.on('SIGINT', () => {
   console.log('\n[Shutdown] Desligamento solicitado');
   botInstance.bot?.quit();
