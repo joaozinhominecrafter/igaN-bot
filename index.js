@@ -1,7 +1,7 @@
 const mineflayer = require('mineflayer');
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
 const autoeat = require('mineflayer-auto-eat');
-const pvp = require('mineflayer-pvp').plugin;
+const pvp = require('mineflayer-pvp'); // Remova o .plugin;
 const armorManager = require('mineflayer-armor-manager');
 const collectBlock = require('mineflayer-collectblock').plugin;
 const tool = require('mineflayer-tool').plugin;
