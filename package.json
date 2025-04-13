@@ -13,8 +13,8 @@
     "mineflayer-pvp": "^1.0.3",
     "vec3": "^0.1.7",
     "minecraft-data": "^3.29.0",
-    "dotenv": "^16.0.0"
-  "mineflayer-armor-manager": "^1.4.0"
+    "dotenv": "^16.0.0",
+    "mineflayer-armor-manager": "^1.4.0"
   },
   "engines": {
     "node": ">=18.x"
